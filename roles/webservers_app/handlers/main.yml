@@ -1,0 +1,12 @@
+---
+# handler for sshd
+- name: Restart sshd service
+  service:
+    name: 
+    state: restarted
+
+###-- handler for apache
+- name: Restart apache service
+  service:
+    name: httpd
+    state: restarted 

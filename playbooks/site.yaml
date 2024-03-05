@@ -1,0 +1,7 @@
+---
+- name:  Apache role for http based webservers app-01 nad app-02
+  import_playbook: ../static-assisgnments/webservers_app.yaml
+
+- name:  HAProxy role for load balancer lb
+  import_playbook: ../static-assisgnments/loadbalancer.yaml
+

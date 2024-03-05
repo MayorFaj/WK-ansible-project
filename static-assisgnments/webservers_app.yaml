@@ -1,0 +1,6 @@
+---
+- hosts: webserver
+  roles:
+    - webservers_app
+  become: yes
+

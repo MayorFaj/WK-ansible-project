@@ -1,0 +1,143 @@
+---
+###-- Patching machines with latest stable versions
+- name: Install yum utils
+  package:
+    name:
+    - yum-utils
+    - "@Development tools"
+    lock_timeout: 180
+
+- name: Update all packages to the latest version
+  yum:
+    name: '*'
+    state: latest
+  become: true
+
+- name: Install policycoreutils package
+  yum:
+    name: policycoreutils
+    state: present
+  become: true
+
+- name: Install policycoreutils-python package
+  become: true
+  yum:
+    name: policycoreutils-python
+    state: present
+
+- name: Install SELinux policy package
+  yum:
+    name: selinux-policy
+    state: present
+
+- name: Set SELinux to enforcing mode with targeted policy
+  selinux:
+    policy: targeted
+    state: enforcing
+
+- name: Reboot the system
+  reboot:
+
+##-- SSH port configuration from port 22 to port 2222
+- name: Change SSH port number.
+  lineinfile:
+    dest: "/etc/ssh/sshd_config"
+    regexp: "^Port"
+    line: "Port 2222"
+
+- name: Setup Selinux for SSH Port.
+  seport:
+    ports: "2222"
+    proto: "tcp"
+    setype: "ssh_port_t"
+    state: "present"
+
+###--- Disable root login
+- name: Comment PermitRootLogin in SSH Config file.
+  replace:
+    path: /etc/ssh/sshd_config
+    regexp: "PermitRootLogin yes"
+    replace: "#PermitRootLogin no"
+
+##-- Configure and enable firewall rule 
+- name: Install firewalld package
+  yum:
+    name: firewalld
+    state: present
+
+- name: Start firewalld service
+  systemd:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: Firewall rule.
+  firewalld:
+    port: 2222/tcp
+    permanent: yes
+    state: enabled
+    immediate: yes
+
+- name: Firewall rule.
+  firewalld:
+    port: 22/tcp
+    permanent: yes
+    zone: public
+    state: enabled
+    immediate: yes
+
+
+- name: Firewall rule for HTTP (port 80)
+  firewalld:
+    port: 80/tcp
+    zone: public
+    permanent: yes
+    state: enabled
+    immediate: yes
+
+- name: Restart sshd service
+  service:
+    name: sshd
+    state: restarted
+
+###-- Configure Apache on app-01 and app-02 webservers
+- name: Install Apache web server package
+  yum:
+    name: httpd
+    state: present
+
+- name: Ensure Apache service is started and enabled
+  service:
+    name: httpd
+    state: started
+    enabled: true
+
+- name: create html directory
+  file:
+    path: /var/www/html 
+    state: directory
+    mode: "0755"
+    owner: apache
+    group: apache
+
+- name: server content 
+  copy:
+    content: "<h1>Hello World, from server IP {{ ansible_host }}<h1>"
+    dest: /var/www/html/index.html
+    mode: "0755"
+    owner: apache
+    group: apache
+  notify: Restart apache service
+
+###--- Non-Root Accounts Have UID Set To 0
+- name: Display accounts with UID set to 0
+  ansible.builtin.shell:
+    cmd: "awk -F: '($3 == \"0\") {print}' /etc/passwd"
+  register: root_accounts_output
+  changed_when: false
+
+- name: Show output
+  debug:
+    msg: "{{ root_accounts_output.stdout_lines }}"
+
+
