@@ -28,6 +28,4 @@ I confirmed that only root account have UID 0 with full permissions to access th
 
 Commands
 
-`cd wrenkitchen-proj`
-
 `ansible-playbook -i inventory/dev playbooks/site.yml -b`
