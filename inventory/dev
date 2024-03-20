@@ -1,7 +1,7 @@
 [webserver]
-3.10.199.158 ansible_ssh_user='ec2-user' ansible_ssh_password='' ansible_become='true' ansible_port='2222'
-3.9.177.227 ansible_ssh_user='ec2-user' ansible_ssh_password='' ansible_become='true' ansible_port='2222'
+16.16.92.222 ansible_ssh_user='ec2-user' ansible_become='true' ansible_port='22' #ansible_ssh_password=''
+16.170.164.2 ansible_ssh_user='ec2-user'  ansible_become='true' ansible_port='22' #ansible_ssh_password=''
 
 [loadbalancer]
-35.176.52.47 ansible_ssh_user='ec2-user' ansible_ssh_password='' ansible_become='true' ansible_port='22'
+16.16.90.39 ansible_ssh_user='ec2-user' ansible_become='true' ansible_port='22' #ansible_ssh_password=''
 

@@ -3,47 +3,49 @@
 - name: Install yum utils
   package:
     name:
-    - yum-utils
-    - "@Development tools"
+      - yum-utils
+      - "@Development tools"
     lock_timeout: 180
 
 - name: Update all packages to the latest version
   yum:
-    name: '*'
+    name: "*"
     state: latest
   become: true
 
-- name: Install policycoreutils package
-  yum:
-    name: policycoreutils
-    state: present
+- name: Add cron job  to patch update at 1am everyday
+  cron:
+    name: "Your Cron Job Name"
+    minute: "0"
+    hour: "1"
+    job: "yum update"
   become: true
 
-- name: Install policycoreutils-python package
-  become: true
-  yum:
-    name: policycoreutils-python
-    state: present
-
-- name: Install SELinux policy package
-  yum:
-    name: selinux-policy
-    state: present
-
-- name: Set SELinux to enforcing mode with targeted policy
-  selinux:
-    policy: targeted
-    state: enforcing
-
-- name: Reboot the system
-  reboot:
-
-##-- SSH port configuration from port 22 to port 2222
-- name: Change SSH port number.
+- name: Ensure SELINUX=enforcing in /etc/selinux/config
   lineinfile:
-    dest: "/etc/ssh/sshd_config"
-    regexp: "^Port"
-    line: "Port 2222"
+    path: /etc/selinux/config
+    regexp: "^SELINUX="
+    line: "SELINUX=enforcing"
+    state: present
+  notify: Reboot if SELinux state changed
+
+- name: Set SELinux to Enforcing mode
+  command: setenforce 1
+
+- name: OS_hardening
+  lineinfile:
+    path: "/etc/ssh/sshd_config"
+    regexp: { { item.regexp } }
+    line: { { item.line } }
+  loop:
+    - regexp: "^PasswordAuthentication"
+      line: "#PasswordAuthentication no"
+    - regexp: "^PermitRootLogin"
+      line: "#PermitRootLogin yes"
+    - regexp: "^Port"
+      line: "Port 2222"
+    - regexp: "^PermitEmptyPasswords"
+      line: "PermitEmptyPasswords no"
 
 - name: Setup Selinux for SSH Port.
   seport:
@@ -52,14 +54,19 @@
     setype: "ssh_port_t"
     state: "present"
 
-###--- Disable root login
-- name: Comment PermitRootLogin in SSH Config file.
-  replace:
-    path: /etc/ssh/sshd_config
-    regexp: "PermitRootLogin yes"
-    replace: "#PermitRootLogin no"
+- name: Copy SSH key.
+  authorized_key:
+    user: ec2-user
+    state: present
+    manage_dir: yes
+    key: "{{ lookup('file', '/root/.ssh/id_rsa.pub') }}"
 
-##-- Configure and enable firewall rule 
+- name: Restart sshd service
+  service:
+    name: sshd
+    state: restarted
+
+##-- Configure and enable firewall rule
 - name: Install firewalld package
   yum:
     name: firewalld
@@ -73,32 +80,25 @@
 
 - name: Firewall rule.
   firewalld:
-    port: 2222/tcp
-    permanent: yes
-    state: enabled
-    immediate: yes
-
-- name: Firewall rule.
-  firewalld:
-    port: 22/tcp
+    port: { { item.port } }
     permanent: yes
     zone: public
     state: enabled
     immediate: yes
+  loop:
+    - port: 2222/tcp
+    - port: 80/tcp
 
+###--- Non-Root Accounts Have UID Set To 0
+- name: Display accounts with UID set to 0
+  ansible.builtin.shell:
+    cmd: "awk -F: '($3 == \"0\") {print}' /etc/passwd"
+  register: root_accounts_output
+  changed_when: false
 
-- name: Firewall rule for HTTP (port 80)
-  firewalld:
-    port: 80/tcp
-    zone: public
-    permanent: yes
-    state: enabled
-    immediate: yes
-
-- name: Restart sshd service
-  service:
-    name: sshd
-    state: restarted
+- name: Show output
+  debug:
+    msg: "{{ root_accounts_output.stdout_lines }}"
 
 ###-- Configure Apache on app-01 and app-02 webservers
 - name: Install Apache web server package
@@ -114,13 +114,13 @@
 
 - name: create html directory
   file:
-    path: /var/www/html 
+    path: /var/www/html
     state: directory
     mode: "0755"
     owner: apache
     group: apache
 
-- name: server content 
+- name: server content
   copy:
     content: "<h1>Hello World, from server IP {{ ansible_host }}<h1>"
     dest: /var/www/html/index.html
@@ -128,16 +128,4 @@
     owner: apache
     group: apache
   notify: Restart apache service
-
-###--- Non-Root Accounts Have UID Set To 0
-- name: Display accounts with UID set to 0
-  ansible.builtin.shell:
-    cmd: "awk -F: '($3 == \"0\") {print}' /etc/passwd"
-  register: root_accounts_output
-  changed_when: false
-
-- name: Show output
-  debug:
-    msg: "{{ root_accounts_output.stdout_lines }}"
-
 

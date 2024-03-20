@@ -9,4 +9,9 @@
 - name: Restart apache service
   service:
     name: httpd
-    state: restarted 
+    state: restarted
+
+- name: Reboot if SELinux state changed
+  reboot:
+
+
